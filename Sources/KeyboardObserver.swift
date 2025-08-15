@@ -43,6 +43,5 @@ final class KeyboardObserver {
   @objc private func keyboardDidHide() {
     didKeyboardShow = false
   }
-  
 }
 

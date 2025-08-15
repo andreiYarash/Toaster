@@ -32,14 +32,6 @@ open class ToastWindow: UIWindow {
     }
   }
   
-  /// Don't rotate manually if the application:
-  ///
-  /// - is running on iPad
-  /// - is running on iOS 9
-  /// - supports all orientations
-  /// - doesn't require full screen
-  /// - has launch storyboard
-  ///
   var shouldRotateManually: Bool {
     let iPad = UIDevice.current.userInterfaceIdiom == .pad
     let application = UIApplication.shared
@@ -58,22 +50,16 @@ open class ToastWindow: UIWindow {
   
   
   // MARK: - Private Property
-  
-  /// Will not return `rootViewController` while this value is `true`. Or the rotation will be fucked in iOS 9.
   private var isStatusBarOrientationChanging = false
   
-  /// Will not return `rootViewController` while this value is `true`. Needed for iOS 13.
   private var isShowing = false
   
-  /// Returns original subviews. `ToastWindow` overrides `addSubview()` to add a subview to the
-  /// top window instead itself.
   private var originalSubviews = NSPointerArray.weakObjects()
   
   private weak var mainWindow: UIWindow?
   
 
   // MARK: - Initializing
-
   public init(frame: CGRect, mainWindow: UIWindow?) {
     super.init(frame: frame)
     self.mainWindow = mainWindow
@@ -150,7 +136,6 @@ open class ToastWindow: UIWindow {
   
   
   // MARK: - Private method
-
   @objc private func statusBarOrientationWillChange() {
     self.isStatusBarOrientationChanging = true
   }
@@ -213,7 +198,6 @@ open class ToastWindow: UIWindow {
     }
   }
 
-  /// Returns top window that isn't self
   private func topWindow() -> UIWindow? {
     if let window = UIApplication.shared.windows.last(where: {
       // https://github.com/devxoul/Toaster/issues/152
