@@ -150,4 +150,4 @@ ToastCenter.default.isSupportAccessibility = false
 License
 -------
 
-Toaster is under [WTFPL](http://www.wtfpl.net/). You can do what the fuck you want with Toast. See [LICENSE](LICENSE) file for more info.
+This kind of version created by 3VO Team
