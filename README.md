@@ -1,7 +1,6 @@
 Toaster
 =======
 
-[![Build Status](https://travis-ci.org/devxoul/Toaster.svg?branch=master)](https://travis-ci.org/devxoul/Toaster)
 ![Swift](https://img.shields.io/badge/Swift-5.0-orange.svg)
 [![CocoaPods](https://img.shields.io/cocoapods/v/Toaster.svg?style=flat)](https://cocoapods.org/?q=name%3AToaster%20author%3Adevxoul)
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
@@ -65,7 +64,7 @@ Installation
 
     ```
     dependencies: [
-        .package(url: "https://github.com/devxoul/Toaster.git", from: "master")
+        .package(url: "https://github.com/andreiYarash/Toaster", from: "master")
     ]
     ```
 
