@@ -5,7 +5,7 @@ Toaster
 [![CocoaPods](https://img.shields.io/cocoapods/v/Toaster.svg?style=flat)](https://cocoapods.org/?q=name%3AToaster%20author%3Adevxoul)
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
 
-Android-like toast with very simple interface. (formerly JLToast)
+Android-like toast with very simple interface. Modified 3VO Team
 
 
 Screenshots
