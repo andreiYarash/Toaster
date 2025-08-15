@@ -8,10 +8,11 @@ public class Delay: NSObject {
   @objc(Long) public static let long: TimeInterval = 3.5
 }
 
-open class Toast: Operation {
+//
+#warning("Be carefully at ios 17.6 -> open class Toast: Operation { }")
+open class Toast: Operation, @unchecked Sendable {
 
   // MARK: Properties
-
   @objc public var text: String? {
     get { return self.view.text }
     set { self.view.text = newValue }
