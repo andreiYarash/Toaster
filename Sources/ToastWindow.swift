@@ -48,14 +48,42 @@ open class ToastWindow: UIWindow {
   }()
 
   /// Keep a stable root so the app controller is never moved into this window.
+  /// While the window is being shown, answer nil. Returning a controller whose
+  /// view is already in this window makes UIKit insert that layer twice and
+  /// crash in `isHidden = false` ("layer is a part of cycle in its layer tree").
   override open var rootViewController: UIViewController? {
     get {
+      if self.isAdjustingWindow {
+        return nil
+      }
       return super.rootViewController
     }
     set {
+      // UIKit tries to install the app controller while this window joins the
+      // scene. That view already owns the scene layer, so accepting it makes
+      // the window a sublayer of itself.
+      if let newValue = newValue, newValue !== self.toastRootViewController {
+        return
+      }
       guard !self.didLockRootViewController else { return }
+      let installingRoot = newValue === self.toastRootViewController
+      if installingRoot {
+        self.isInstallingRootView = true
+      }
       self.didLockRootViewController = newValue != nil
       super.rootViewController = newValue
+      if installingRoot {
+        self.isInstallingRootView = false
+      }
+    }
+  }
+
+  override open var isHidden: Bool {
+    willSet {
+      self.isAdjustingWindow = true
+    }
+    didSet {
+      self.isAdjustingWindow = false
     }
   }
 
@@ -89,6 +117,12 @@ open class ToastWindow: UIWindow {
 
   private var didLockRootViewController = false
 
+  /// True while UIKit is attaching this window and must not see a root controller.
+  private var isAdjustingWindow = false
+
+  /// True while the dedicated root view is being inserted by UIKit.
+  private var isInstallingRootView = false
+
   private var originalSubviews = NSPointerArray.weakObjects()
 
   private weak var mainWindow: UIWindow?
@@ -98,7 +132,14 @@ open class ToastWindow: UIWindow {
 
   // MARK: - Initializing
   public init(frame: CGRect, mainWindow: UIWindow?) {
-    super.init(frame: frame)
+    // A window created with a frame and then moved onto a scene gets a second
+    // layer host. Showing it commits that cycle at `isHidden = false`.
+    if #available(iOS 13.0, *), let scene = ToastWindow.activeWindowScene() {
+      super.init(windowScene: scene)
+    } else {
+      super.init(frame: frame)
+    }
+    self.frame = frame
     self.mainWindow = mainWindow
     self.isUserInteractionEnabled = false
     self.gestureRecognizers = nil
@@ -118,13 +159,11 @@ open class ToastWindow: UIWindow {
     self.backgroundColor = .clear
     self.isOpaque = false
 
-    if #available(iOS 13.0, *), self.windowScene == nil {
-      self.windowScene = ToastWindow.activeWindowScene()
-    }
-    self.installRootViewController()
-    // Scene attachment can clear the controller. Put it back before showing.
-    self.installRootViewController()
+    // Show while `rootViewController` still reads as nil. A controller whose
+    // view is already in the hierarchy is inserted again here, and that is
+    // the layer cycle.
     self.isHidden = false
+    self.installRootViewController()
     self.handleRotate(UIApplication.shared.statusBarOrientation)
     self.layoutIfNeeded()
 
@@ -162,13 +201,16 @@ open class ToastWindow: UIWindow {
   // MARK: - Public method
 
   override open func addSubview(_ view: UIView) {
-    // UIWindow inserts the root controller's view through addSubview. Routing
-    // that view into itself builds a layer cycle and crashes on isHidden = false.
-    if view === self.toastRootViewController.view {
-      super.addSubview(view)
+    // Root insertion must land on the window itself. `viewIfLoaded` avoids
+    // loading the controller from inside addSubview, which re-enters and
+    // used to add the root view as its own subview.
+    if self.isInstallingRootView || view === self.toastRootViewController.viewIfLoaded {
+      if view !== self, view.superview !== self {
+        super.addSubview(view)
+      }
       return
     }
-    self.preparedContainerView().addSubview(view)
+    super.addSubview(view)
     self.originalSubviews.addPointer(Unmanaged.passUnretained(view).toOpaque())
     // Only the keyboard window needs the toast reparented. Moving it onto
     // whichever window happens to be last drops the first toast when that
@@ -223,25 +265,6 @@ open class ToastWindow: UIWindow {
     self.rootViewController = self.toastRootViewController
   }
 
-  private func preparedContainerView() -> UIView {
-    self.toastRootViewController.loadViewIfNeeded()
-    guard let container = self.toastRootViewController.view else {
-      let fallback = UIView(frame: self.bounds)
-      fallback.backgroundColor = .clear
-      fallback.isOpaque = false
-      fallback.isUserInteractionEnabled = false
-      super.addSubview(fallback)
-      return fallback
-    }
-    if container.bounds.size == .zero {
-      container.frame = self.bounds
-    }
-    if container.window == nil {
-      super.addSubview(container)
-    }
-    return container
-  }
-
   @objc private func statusBarOrientationDidChange() {
     let orientation = UIApplication.shared.statusBarOrientation
     self.handleRotate(orientation)
@@ -262,9 +285,8 @@ open class ToastWindow: UIWindow {
 
   @objc private func keyboardDidHide() {
     guard let subviews = self.originalSubviews.allObjects as? [UIView] else { return }
-    let container = self.preparedContainerView()
     for subview in subviews {
-      container.addSubview(subview)
+      super.addSubview(subview)
     }
   }
 
