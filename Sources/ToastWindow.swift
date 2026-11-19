@@ -162,6 +162,12 @@ open class ToastWindow: UIWindow {
   // MARK: - Public method
 
   override open func addSubview(_ view: UIView) {
+    // UIWindow inserts the root controller's view through addSubview. Routing
+    // that view into itself builds a layer cycle and crashes on isHidden = false.
+    if view === self.toastRootViewController.view {
+      super.addSubview(view)
+      return
+    }
     self.preparedContainerView().addSubview(view)
     self.originalSubviews.addPointer(Unmanaged.passUnretained(view).toOpaque())
     // Only the keyboard window needs the toast reparented. Moving it onto
