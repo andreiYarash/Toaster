@@ -52,6 +52,27 @@ class ToasterTests: XCTestCase {
         XCTAssertNil(ToastCenter.default.currentToast)
     }
     
+    func testToastStaysVisibleForConfiguredDuration() {
+        let toast = Toast(text: "duration", duration: 1)
+        toast.show()
+
+        let during = expectation(description: "Toast still showing during its duration")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            during.fulfill()
+            XCTAssertFalse(toast.isFinished)
+            XCTAssertNotNil(toast.view.superview)
+        }
+        wait(for: [during], timeout: 2)
+
+        let after = expectation(description: "Toast finishes after its duration")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            after.fulfill()
+            XCTAssertTrue(toast.isFinished)
+            XCTAssertNil(toast.view.superview)
+        }
+        wait(for: [after], timeout: 3)
+    }
+
     func testBasicToast() {
         
         XCTAssertEqual(ToastWindow.shared.subviews.count, 0)
