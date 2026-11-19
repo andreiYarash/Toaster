@@ -34,6 +34,8 @@ open class Toast: Operation, @unchecked Sendable {
   @objc public var duration: TimeInterval
 
   private var didBeginHold = false
+  private var isDismissing = false
+  private var reattachAttempts = 0
 
   private var _executing = false
   override open var isExecuting: Bool {
@@ -144,6 +146,9 @@ open class Toast: Operation, @unchecked Sendable {
 
   private func present() {
     guard !self.isCancelled, !self.isFinished else { return }
+    self.view.onRemovedFromWindow = { [weak self] in
+      self?.reattachIfNeeded()
+    }
     self.view.setNeedsLayout()
     self.view.alpha = 0
     ToastWindow.shared.addSubview(self.view)
@@ -173,10 +178,10 @@ open class Toast: Operation, @unchecked Sendable {
   private func beginHold() {
     guard !self.isCancelled, !self.isFinished, !self.didBeginHold else { return }
     self.didBeginHold = true
-    // The first animation committed on a newly created window can be dropped
-    // on newer iOS, which used to skip straight to dismiss. Pin the visible
-    // state, then hold for `duration` with a timer instead of a no-op animation.
-    self.view.alpha = 1
+    // The first animation committed for a new window can be dropped, and UIKit
+    // can also detach the view while the window joins the scene. Pin visibility
+    // ourselves instead of waiting on that animation.
+    self.pinVisible()
     if ToastCenter.default.isSupportAccessibility {
       #if swift(>=4.2)
       UIAccessibility.post(notification: .announcement, argument: self.view.text)
@@ -184,13 +189,55 @@ open class Toast: Operation, @unchecked Sendable {
       UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, self.view.text)
       #endif
     }
+    // Queue the dismiss before the visibility checks so a zero duration cannot
+    // be pinned back on screen after it has already started fading out.
     DispatchQueue.main.asyncAfter(deadline: .now() + self.duration) { [weak self] in
       self?.dismiss()
     }
+    self.scheduleVisibilityCheck(after: 0)
+    self.scheduleVisibilityCheck(after: 0.05)
+    self.scheduleVisibilityCheck(after: 0.2)
+    self.scheduleVisibilityCheck(after: 0.5)
+    self.scheduleVisibilityCheck(after: 1)
+  }
+
+  private func scheduleVisibilityCheck(after delay: TimeInterval) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+      guard let self = self, self.didBeginHold, !self.isDismissing, !self.isFinished, !self.isCancelled else { return }
+      if self.view.superview == nil {
+        self.reattachNow()
+      } else if self.view.alpha < 0.99 {
+        self.pinVisible()
+      }
+    }
+  }
+
+  private func pinVisible() {
+    self.view.layer.removeAllAnimations()
+    self.view.alpha = 1
+  }
+
+  private func reattachIfNeeded() {
+    DispatchQueue.main.async { [weak self] in
+      self?.reattachNow()
+    }
+  }
+
+  private func reattachNow() {
+    guard !self.isDismissing, !self.isFinished, !self.isCancelled else { return }
+    guard self.view.superview == nil else { return }
+    guard self.reattachAttempts < 5 else { return }
+    self.reattachAttempts += 1
+    if self.didBeginHold {
+      self.pinVisible()
+    }
+    ToastWindow.shared.addSubview(self.view)
+    self.view.setNeedsLayout()
   }
 
   private func dismiss() {
     guard !self.isFinished else { return }
+    self.isDismissing = true
     self.finish()
     let view = self.view
     UIView.animate(

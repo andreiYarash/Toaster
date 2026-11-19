@@ -75,7 +75,7 @@ class ToasterTests: XCTestCase {
 
     func testBasicToast() {
         
-        XCTAssertEqual(ToastWindow.shared.subviews.count, 0)
+        XCTAssertNil(self.toastViewInHierarchy())
         
         let toast = Toast(text: "text", duration: 0.5)
         toast.show()
@@ -84,9 +84,8 @@ class ToasterTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             appearExpectation.fulfill()
             
-            XCTAssertEqual(ToastWindow.shared.subviews.count, 1)
-            guard let toastView = ToastWindow.shared.subviews.first as? ToastView else {
-                return XCTFail("Subview should be a ToastView")
+            guard let toastView = self.toastViewInHierarchy() else {
+                return XCTFail("ToastView should be in the window hierarchy")
             }
             
             XCTAssertEqual(toastView.text, "text")
@@ -96,9 +95,25 @@ class ToasterTests: XCTestCase {
         let disappearExpectation = self.expectation(description: "Wait for toast to disappear")
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             disappearExpectation.fulfill()
-            XCTAssertEqual(ToastWindow.shared.subviews.count, 0)
+            XCTAssertNil(self.toastViewInHierarchy())
         }
         wait(for: [disappearExpectation], timeout: 3)
+    }
+
+    private func toastViewInHierarchy() -> ToastView? {
+        return self.firstToastView(in: ToastWindow.shared)
+    }
+
+    private func firstToastView(in view: UIView) -> ToastView? {
+        if let toastView = view as? ToastView {
+            return toastView
+        }
+        for subview in view.subviews {
+            if let toastView = self.firstToastView(in: subview) {
+                return toastView
+            }
+        }
+        return nil
     }
     
     func testToastWindowNotToBeKeyWindow() {

@@ -170,6 +170,16 @@ open class ToastView: UIView {
     self.init()
   }
 
+  /// Invoked when the toast leaves the hierarchy while it is still supposed to be visible.
+  var onRemovedFromWindow: (() -> Void)?
+
+  override open func didMoveToWindow() {
+    super.didMoveToWindow()
+    if self.window == nil {
+      self.onRemovedFromWindow?()
+    }
+  }
+
 
   // MARK: Layout
 
